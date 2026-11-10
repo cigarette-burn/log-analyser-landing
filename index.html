@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>log_analyser — Высокопроизводительный потоковый анализатор логов Nginx на Rust</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://googleapis.com">
+    <link rel="preconnect" href="https://gstatic.com" crossorigin>
+    <link
+        href="https://googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+
+    <!-- Навигационная панель -->
+    <header class="navbar">
+        <div class="container">
+            <div class="nav-brand-wrapper">
+                <a href="#" class="brand">log_analyser</a>
+                <span class="nav-version">v0.1.0</span>
+            </div>
+            <nav class="nav-links">
+                <a href="#context" class="nav-item">О технологии</a>
+                <a href="#architecture" class="nav-item">Архитектура</a>
+                <a href="#features" class="nav-item">Возможности</a>
+                <a href="#guide" class="nav-item">Документация</a>
+                <a href="https://github.com" target="_blank" class="github-button">
+                    <span>GitHub</span>
+                    <svg class="icon-arrow" viewBox="0 0 12 12" width="12" height="12">
+                        <path d="M6 2l5 5-5 5M11 7H1" fill="none" stroke="currentColor" stroke-width="2" />
+                    </svg>
+                </a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Главный экран (Hero Section) -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-badge-container">
+                <span class="badge-pulse"></span>
+                <span class="badge-text">Open Source Production Release</span>
+            </div>
+            <h1>Потоковый анализ логов Nginx в реальном времени.</h1>
+            <p class="subtitle">Легковесная консольная утилита на Rust. Быстро фильтрует запросы, валидирует сетевые
+                данные и собирает серверную статистику без нагрузки на процессор и оперативную память компьютера.</p>
+            <div class="cta-group">
+                <a href="#guide" class="btn btn-primary">Начать использование</a>
+                <a href="https://github.com/cigarette-burn/log-analyser" target="_blank"
+                    class="btn btn-secondary">Посмотреть репозиторий</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Секция видеодемонстрации (Showcase) -->
+    <section class="showcase">
+        <div class="container">
+            <div class="terminal-mockup">
+                <div class="terminal-header">
+                    <div class="terminal-controls">
+                        <span class="control-dot close"></span>
+                        <span class="control-dot minimize"></span>
+                        <span class="control-dot expand"></span>
+                    </div>
+                    <span class="terminal-title">kaerisetsu@dev:~ (log_analyser --file access.log)</span>
+                    <div class="terminal-spacer"></div>
+                </div>
+                <div class="terminal-body">
+                    <video controls muted autoplay loop class="demo-video">
+                        <source src="screencast.mp4" type="video/mp4">
+                        Ваш браузер не поддерживает встроенное видео.
+                    </video>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Секция контекста и проблематики -->
+    <section id="context" class="core-section spec-bg">
+        <div class="container">
+            <div class="section-grid-layout">
+                <div class="section-sidebar">
+                    <h2 class="sticky-title">Контекст и проблематика</h2>
+                </div>
+                <div class="section-content">
+                    <div class="nginx-explanation-card">
+                        <h3>Что такое Nginx и зачем анализировать его логи?</h3>
+                        <p><b>Nginx</b> — это самый популярный в мире высоконагруженный веб-сервер, удерживающий
+                            инфраструктуру миллионов современных сайтов. Каждый раз, когда клиент запрашивает документ,
+                            открывает страницу или отправляет данные, Nginx мгновенно регистрирует это действие в файле
+                            <code>access.log</code>.
+                        </p>
+                        <p>Анализ этих записей — фундаментальный способ контроля стабильности. Он позволяет
+                            администраторам вовремя обнаруживать технические сбои, находить медленные скрипты и
+                            оперативно изолировать хакерские атаки (например, попытки подбора паролей к панелям
+                            управления).</p>
+                    </div>
+
+                    <div class="problem-split-grid">
+                        <div class="problem-card">
+                            <div class="card-icon-wrapper red-tint">⚠️</div>
+                            <h4>Почему стандартный grep не подходит?</h4>
+                            <p>Утилита <code>grep</code> осуществляет атомарный текстовый поиск по всей строке. Если вам
+                                нужно отфильтровать HTTP-ошибки <code>404</code>, grep выведет строку, даже если эти
+                                цифры встретились внутри объема переданных байт, IP-адреса или технической сигнатуры
+                                браузера (User-Agent). Наш анализатор понимает логическую схему данных и проверяет
+                                строго целевые поля, исключая ложноположительные результаты.</p>
+                        </div>
+                        <div class="problem-card">
+                            <div class="card-icon-wrapper yellow-tint">⚡</div>
+                            <h4>Кризис оперативной памяти (OOM)</h4>
+                            <p>Большинство традиционных парсеров (на Python или Node.js) перед обработкой загружают
+                                лог-файл в буфер целиком. При попытке проанализировать продакшн-лог размером в 50-100 Гб
+                                сервер мгновенно истощит ресурсы памяти, уйдет в Out-Of-Memory (OOM) и аварийно завершит
+                                работу. Данная утилита спроектирована под стабильное и фиксированное потребление ОЗУ
+                                независимо от веса исходного файла.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <!-- Секция глубокого анализа архитектуры -->
+    <section id="architecture" class="core-section">
+        <div class="container">
+            <div class="section-grid-layout">
+                <div class="section-sidebar">
+                    <h2 class="sticky-title">Инженерная архитектура</h2>
+                    <p class="sidebar-annotation">Разбор внутренних механизмов, обеспечивающих стабильность ядра утилиты
+                        под критическими нагрузками.</p>
+                </div>
+                <div class="section-content">
+                    <div class="architecture-intro">
+                        <p>В основе утилиты лежит строгое разделение на изолированный библиотечный движок (Core Engine)
+                            и интерфейсный слой командной строки. Программа спроектирована с использованием
+                            идиоматических паттернов языка программирования Rust, что гарантирует предсказуемость
+                            системных ресурсов.</p>
+                    </div>
+
+                    <div class="architecture-timeline">
+                        <!-- Шаг 1 -->
+                        <div class="timeline-item">
+                            <div class="timeline-marker">
+                                <div class="marker-dot"></div>
+                                <div class="marker-line"></div>
+                            </div>
+                            <div class="timeline-content-block">
+                                <span class="tech-tag">Паттерн Проектирования</span>
+                                <h4>Динамический конфигуратор ядра (Builder Pattern)</h4>
+                                <p>Управление состоянием и подготовка анализатора к работе изолированы внутри структуры
+                                    <code>Analyser</code>. Инициализация параметров использует шаблон проектирования
+                                    «Строитель» (Builder Pattern).
+                                </p>
+                                <p>С помощью цепочки методов <code>.lines()</code>, <code>.with_filters()</code> и
+                                    безопасного добавления замыканий через <code>.add_filter()</code> утилита
+                                    динамически формирует упорядоченный вектор атомарных предикатов фильтрации. Такая
+                                    схема полностью исключает жесткую связанность кода (Tight Coupling) и позволяет
+                                    декларативно конфигурировать систему прямо на этапе парсинга аргументов CLI.</p>
+                            </div>
+                        </div>
+
+                        <!-- Шаг 2 -->
+                        <div class="timeline-item">
+                            <div class="timeline-marker">
+                                <div class="marker-dot"></div>
+                                <div class="marker-line"></div>
+                            </div>
+                            <div class="timeline-content-block">
+                                <span class="tech-tag">Оптимизация Памяти</span>
+                                <h4>Конвейерный ленивый поток (Lazy LogIterator)</h4>
+                                <p>Вместо выделения непредсказуемых объемов памяти на куче (Heap Allocation) под массив
+                                    готовых структур, движок реализует кастомную структуру <code>LogIterator</code>,
+                                    реализующую стандартный типаж <code>Iterator</code>.</p>
+                                <p>Связка из буферизированного чтения файла <code>BufReader</code> и ленивой итерации
+                                    позволяет обрабатывать данные строго поточно. Строка считывается с диска, проходит
+                                    через синтаксический анализатор, сопоставляется со всем вектором фильтров и, в
+                                    случае успеха, сразу возвращается наружу, тут же освобождая память для следующей
+                                    строки. Сложность по памяти составляет стабильные <code>O(1)</code>.</p>
+                            </div>
+                        </div>
+
+                        <!-- Шаг 3 -->
+                        <div class="timeline-item">
+                            <div class="timeline-marker">
+                                <div class="marker-dot"></div>
+                            </div>
+                            <div class="timeline-content-block">
+                                <span class="tech-tag">Валидация Данных</span>
+                                <h4>RFC-Валидация и защита от некорректного ввода</h4>
+                                <p>Сетевые логи в реальной жизни часто содержат мусорные или намеренно искаженные
+                                    злоумышленниками данные. Атомарный парсер <code>LogEntry::parse</code> осуществляет
+                                    строгую декомпозицию и верификацию каждого извлеченного поля.</p>
+                                <p>Метод <code>validate_ip</code> покомпонентно разбирает октеты IPv4, контролируя их
+                                    границы (0–255), а <code>validate_method</code> сличает HTTP-глаголы с жестким белым
+                                    списком стандартов консорциума W3C (RFC 9110). Любые аномалии бесконфликтно
+                                    упаковываются в перечисление ошибок <code>ParseError</code>, предотвращая панику
+                                    (panic) и гарантируя непрерывность работы демона.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <!-- Секция функциональных возможностей -->
+    <section id="features" class="core-section spec-bg">
+        <div class="container">
+            <div class="section-grid-layout">
+                <div class="section-sidebar">
+                    <h2 class="sticky-title">Возможности и аналитика</h2>
+                    <p class="sidebar-annotation">Инструменты экспресс-диагностики, разработанные для оперативного
+                        расследования инцидентов и аудита безопасности инфраструктуры.</p>
+                </div>
+                <div class="section-content">
+                    <div class="features-detailed-intro">
+                        <p><code>log_analyser</code> не просто фильтрует текстовые строки — он агрегирует цифровую
+                            телеметрию прямо во время потокового сканирования, формируя готовые аналитические срезы для
+                            администратора.</p>
+                    </div>
+
+                    <div class="features-modern-grid">
+                        <!-- Карточка 1 -->
+                        <div class="feature-card-premium">
+                            <div class="card-glow-effect"></div>
+                            <div class="card-inner-content">
+                                <div class="feature-icon">🎨</div>
+                                <h4>Контекстная ANSI-индикация</h4>
+                                <p>Утилита динамически форматирует вывод, преобразуя сырой текст в контрастную
+                                    структуру. Сетевые методы (GET, POST, DELETE) окрашиваются в фиксированные системные
+                                    цвета, а HTTP-статусы получают мгновенную визуальную оценку: коды успешных ответов
+                                    подсвечиваются зеленым, а критические сбои и ошибки доступа (4xx/5xx) — желтым и
+                                    красным цветами с повышенной жирностью.</p>
+                            </div>
+                        </div>
+
+                        <!-- Карточка 2 -->
+                        <div class="feature-card-premium">
+                            <div class="card-glow-effect"></div>
+                            <div class="card-inner-content">
+                                <div class="feature-icon">📊</div>
+                                <h4>Мгновенный расчет телеметрии</h4>
+                                <p>В процессе итерации математическое ядро программы непрерывно аккумулирует данные о
+                                    проходящих пакетах. По завершении работы системный администратор получает точный
+                                    математический срез: общее количество обработанных строк, абсолютные показатели
+                                    успешных ответов и сетевых ошибок инфраструктуры с автоматическим расчетом их
+                                    процентного соотношения.</p>
+                            </div>
+                        </div>
+
+                        <!-- Карточка 3 -->
+                        <div class="feature-card-premium">
+                            <div class="card-glow-effect"></div>
+                            <div class="card-inner-content">
+                                <div class="feature-icon">🔝</div>
+                                <h4>Частотный анализ (Hash-Map)</h4>
+                                <p>Для выявления потенциальных DDoS-атак и аномальной активности скриптов внутри утилиты
+                                    задействована высокопроизводительная хэш-таблица <code>HashMap</code>. Программа
+                                    регистрирует частоту упоминания каждого уникального сетевого адреса. На выходе
+                                    данные сортируются по убыванию, предоставляя чистый, выровненный по колонкам ТОП-3
+                                    самых активных IP-клиентов.</p>
+                            </div>
+                        </div>
+
+                        <!-- Карточка 4 -->
+                        <div class="feature-card-premium">
+                            <div class="card-glow-effect"></div>
+                            <div class="card-inner-content">
+                                <div class="feature-icon">⚡</div>
+                                <h4>Полнотекстовый поисковый движок</h4>
+                                <p>Помимо точечной структурной фильтрации, утилита поддерживает режим сквозного
+                                    сканирования. Через специализированный флаг <code>-q / --search</code> активируется
+                                    алгоритм поиска подстроки по всей длине сырой записи. Это позволяет мгновенно
+                                    обнаруживать скрытые аномалии — например, вычленять запросы от конкретных версий
+                                    браузеров, операционных систем или автоматизированных скриптов-парсеров.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <!-- Секция руководства пользователя и интерактивной документации -->
+    <section id="guide" class="core-section">
+        <div class="container">
+            <div class="section-grid-layout">
+                <div class="section-sidebar">
+                    <h2 class="sticky-title">Документация и запуск</h2>
+                    <p class="sidebar-annotation">Подробный мануал по сборке, кроссплатформенной интеграции в
+                        операционные системы и практическим сценариям эксплуатации.</p>
+                </div>
+                <div class="section-content">
+                    <div class="guide-wrapper">
+
+                        <!-- Шаг 1: Сборка -->
+                        <div class="guide-block-step">
+                            <h3>1. Компиляция и развертывание</h3>
+                            <p>Утилита распространяется с открытым исходным кодом. Скопируйте репозиторий на свой
+                                локальный компьютер и скомпилируйте оптимизированный release-билд программы с помощью
+                                пакетного менеджера Cargo:</p>
+
+                            <div class="code-block-container">
+                                <div class="code-header">
+                                    <span class="code-lang">bash</span>
+                                </div>
+                                <div class="code-block">
+                                    <pre><code><span class="comment"># Клонирование исходного кода проекта</span>
+git clone https://github.com
+cd log_analyser
+
+<span class="comment"># Сборка оптимизированного бинарного файла</span>
+cargo build --release</code></pre>
+                                </div>
+                            </div>
+
+                            <p class="platform-title"><b>Для UNIX-систем (Linux / macOS):</b></p>
+                            <p>Интегрируйте скомпилированный бинарный файл в глобальное окружение операционной системы,
+                                создав символическую ссылку (Symlink) в стандартной директории исполняемых файлов
+                                пользовательских программ:</p>
+
+                            <div class="code-block-container">
+                                <div class="code-header">
+                                    <span class="code-lang">bash</span>
+                                </div>
+                                <div class="code-block">
+                                    <pre><code>sudo ln -s $(pwd)/target/release/log_analyser /usr/local/bin/log_analyser</code></pre>
+                                </div>
+                            </div>
+
+                            <p class="platform-title"><b>Для ОС Windows:</b></p>
+                            <p>Добавьте абсолютный путь к папке релиза в системную переменную окружения
+                                <code>Path</code>, чтобы утилита стала доступна в любой папке командной строки:
+                            </p>
+
+                            <div class="code-block-container">
+                                <div class="code-header">
+                                    <span class="code-lang">powershell (Administrator)</span>
+                                </div>
+                                <div class="code-block">
+                                    <pre><code>[Environment]::SetEnvironmentVariable("Path", $env:Path + ";$($pwd)\target\release", "User")</code></pre>
+                                </div>
+                            </div>
+                            <p class="important-note">После выполнения команды обязательно перезапустите активную сессию
+                                терминала (PowerShell или CMD) для обновления кэша переменных окружения.</p>
+                        </div>
+                        <!-- Шаг 2: Таблица флагов -->
+                        <div class="guide-block-step">
+                            <h3>2. Спецификация доступных параметров запуска</h3>
+                            <p>Утилита поддерживает гибкое комбинирование ключей и флагов фильтрации. Ниже приведена
+                                полная карта параметров:</p>
+
+                            <div class="table-responsive-container">
+                                <table class="flags-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Ключ</th>
+                                            <th>Полное имя флага</th>
+                                            <th>Описание и тип принимаемых данных</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><code>-f</code></td>
+                                            <td><code>--file &lt;PATH&gt;</code></td>
+                                            <td><b>Обязательный параметр.</b> Абсолютный или относительный путь к
+                                                целевому файлу логов Nginx access.log.</td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>-n</code></td>
+                                            <td><code>--max-lines &lt;INT&gt;</code></td>
+                                            <td>Лимит строк для обработки. Предотвращает избыточное чтение (по умолчанию
+                                                обрабатывает первые <code>1000</code> строк).</td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>-s</code></td>
+                                            <td><code>--status &lt;INT&gt;</code></td>
+                                            <td>Фильтрация строго по конкретному HTTP-статусу ответа сервера (например:
+                                                <code>200</code>, <code>404</code>, <code>502</code>).
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>-m</code></td>
+                                            <td><code>--method &lt;STR&gt;</code></td>
+                                            <td>Сличение по HTTP-методу запроса. Поддерживает стандартные глаголы:
+                                                <code>GET</code>, <code>POST</code>, <code>PUT</code>,
+                                                <code>DELETE</code>.
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>-p</code></td>
+                                            <td><code>--path-pattern &lt;STR&gt;</code></td>
+                                            <td>Контекстный фильтр по частичному вхождению подстроки в URL-путь
+                                                (например, поиск запросов к <code>/api/v1</code>).</td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>-i</code></td>
+                                            <td><code>--ip &lt;STR&gt;</code></td>
+                                            <td>Выборка записей конкретного сетевого адреса клиента или по совпадению
+                                                сегмента маски подсети.</td>
+                                        </tr>
+                                        <tr>
+                                            <td>—</td>
+                                            <td><code>--only-errors</code></td>
+                                            <td>Групповой логический фильтр: выводить в консоль только клиентские и
+                                                серверные ошибки (HTTP-статус &gt;= 400).</td>
+                                        </tr>
+                                        <tr>
+                                            <td>—</td>
+                                            <td><code>--only-success</code></td>
+                                            <td>Групповой логический фильтр: выводить в консоль только успешные ответы
+                                                веб-инфраструктуры (HTTP-статус &lt; 400).</td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>-q</code></td>
+                                            <td><code>--search &lt;STR&gt;</code></td>
+                                            <td>Режим сквозного полнотекстового сканирования всей сырой строки лога на
+                                                совпадение с паттерном.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Шаг 3: Практические сценарии -->
+                        <div class="guide-block-step">
+                            <h3>3. Практические сценарии эксплуатации</h3>
+
+                            <p class="scen-title"><b>Сценарий А: Расследование попыток несанкционированного доступа
+                                    (Incident Response)</b></p>
+                            <p>Фильтрация запросов злоумышленников, пытающихся перебирать URL-адреса скрытых
+                                административных панелей и получающих код ответа 403 Forbidden:</p>
+                            <div class="code-block-container">
+                                <div class="code-block">
+                                    <pre><code>log_analyser --file access.log --path-pattern /admin --status 403</code></pre>
+                                </div>
+                            </div>
+
+                            <p class="scen-title"><b>Сценарий Б: Комплексный аудит высоконагруженных API-эндпоинтов</b>
+                            </p>
+                            <p>Мониторинг успешных POST-запросов на создание данных в системе с ограничением глубины
+                                сканирования первыми 5000 строк для быстрой оценки телеметрии:</p>
+                            <div class="code-block-container">
+                                <div class="code-block">
+                                    <pre><code>log_analyser -f access.log -m POST -p /api/v1 -n 5000 --only-success</code></pre>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div> <!-- Конец guide-wrapper -->
+                </div> <!-- Конец section-content -->
+            </div> <!-- Конец section-grid-layout -->
+        </div> <!-- Конец container -->
+    </section>
+
+    <!-- Подвал (Footer) -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content-wrapper">
+                <p class="footer-copyright">&copy; 2026 log_analyser. Проект с открытым исходным кодом, распространяемый
+                    под лицензией MIT.</p>
+                <p class="footer-tech-stack">Built with Rust &amp; Pure HTML/CSS for absolute performance.</p>
+            </div>
+        </div>
+    </footer>
+
+</body>
+
+</html>
